@@ -19,8 +19,8 @@ var depsCache = filepath.Join(os.TempDir(), "xgo-cache")
 // Cross compilation docker containers
 var dockerDist = "ghcr.io/crazy-max/xgo"
 
-// ConfigFlags is a simple set of flags to define the environment and dependencies.
-type ConfigFlags struct {
+// configFlags is a simple set of flags to define the environment and dependencies.
+type configFlags struct {
 	Repository   string   // Root import path to build
 	Package      string   // Sub-package to build if not root import
 	Prefix       string   // Prefix to use for output naming
@@ -32,8 +32,8 @@ type ConfigFlags struct {
 	GoProxy      string   // Set a Global Proxy for Go Modules
 }
 
-// BuildFlags is a simple collection of flags to fine tune a build.
-type BuildFlags struct {
+// buildFlags is a simple collection of flags to fine tune a build.
+type buildFlags struct {
 	Verbose  bool   // Print the names of packages as they are compiled
 	Steps    bool   // Print the command as executing the builds
 	Race     bool   // Enable data race detection (supported only on amd64)
@@ -126,7 +126,7 @@ func StartBuild(args Args, logger *log.Logger) error {
 		}
 	}
 	// Assemble the cross compilation environment and build options
-	config := &ConfigFlags{
+	config := &configFlags{
 		Repository:   args.Repository,
 		Package:      args.SrcPackage,
 		Remote:       args.SrcRemote,
@@ -138,7 +138,7 @@ func StartBuild(args Args, logger *log.Logger) error {
 		GoProxy:      args.GoProxy,
 	}
 	logger.Printf("DBG: config: %+v", config)
-	flags := &BuildFlags{
+	flags := &buildFlags{
 		Verbose:  args.Build.Verbose,
 		Steps:    args.Build.Steps,
 		Race:     args.Build.Race,
@@ -174,7 +174,7 @@ func StartBuild(args Args, logger *log.Logger) error {
 // Checks whether a docker installation can be found and is functional.
 func checkDocker(logger *log.Logger) error {
 	logger.Println("INFO: Checking docker installation...")
-	if err := run(exec.Command("docker", "version")); err != nil {
+	if err := run(exec.Command("docker", "version"), newLogWriter(logger)); err != nil {
 		return err
 	}
 	logger.Println("")
@@ -191,15 +191,15 @@ func checkDockerImage(image string, logger *log.Logger) bool {
 // Pulls an image from the docker registry.
 func pullDockerImage(image string, logger *log.Logger) error {
 	logger.Printf("INFO: Pulling %s from docker registry...", image)
-	return run(exec.Command("docker", "pull", image))
+	return run(exec.Command("docker", "pull", image), newLogWriter(logger))
 }
 
 // compile cross builds a requested package according to the given build specs
 // using a specific docker cross compilation image.
 func compile(
 	image string,
-	config *ConfigFlags,
-	flags *BuildFlags,
+	config *configFlags,
+	flags *buildFlags,
 	folder string,
 	logger *log.Logger,
 ) error {
@@ -212,7 +212,7 @@ func compile(
 		}
 		if !usesModules {
 			// Resolve the repository import path from the file path
-			if repository, err := resolveImportPath(config.Repository, logger); err != nil {
+			if repository, err := resolveImportPath(config.Repository); err != nil {
 				return err
 			} else {
 				config.Repository = repository
@@ -336,19 +336,19 @@ func compile(
 
 	args = append(args, []string{image, config.Repository}...)
 	logger.Printf("INFO: Docker %s", strings.Join(args, " "))
-	return run(exec.Command("docker", args...))
+	return run(exec.Command("docker", args...), newLogWriter(logger))
 }
 
 // compileContained cross builds a requested package according to the given build
 // specs using the current system opposed to running in a container. This is meant
 // to be used for cross compilation already from within an xgo image, allowing the
 // inheritance and bundling of the root xgo images.
-func compileContained(config *ConfigFlags, flags *BuildFlags, folder string, logger *log.Logger) error {
+func compileContained(config *configFlags, flags *buildFlags, folder string, logger *log.Logger) error {
 	// If a local build was requested, resolve the import path
 	local := strings.HasPrefix(config.Repository, string(filepath.Separator)) || strings.HasPrefix(config.Repository, ".")
 	if local {
 		// Resolve the repository import path from the file path
-		if repository, err := resolveImportPath(config.Repository, logger); err != nil {
+		if repository, err := resolveImportPath(config.Repository); err != nil {
 			return err
 		} else {
 			config.Repository = repository
@@ -390,12 +390,12 @@ func compileContained(config *ConfigFlags, flags *BuildFlags, folder string, log
 	cmd := exec.Command("xgo-build", config.Repository)
 	cmd.Env = append(os.Environ(), env...)
 
-	return run(cmd)
+	return run(cmd, newLogWriter(logger))
 }
 
 // resolveImportPath converts a package given by a relative path to a Go import
 // path using the local GOPATH environment.
-func resolveImportPath(path string, logger *log.Logger) (string, error) {
+func resolveImportPath(path string) (string, error) {
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		return "", fmt.Errorf("failed to locate requested package: %w", err)
@@ -412,9 +412,9 @@ func resolveImportPath(path string, logger *log.Logger) (string, error) {
 }
 
 // Executes a command synchronously, redirecting its output to stdout.
-func run(cmd *exec.Cmd) error {
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+func run(cmd *exec.Cmd, logWriter logWriter) error {
+	cmd.Stdout = logWriter
+	cmd.Stderr = logWriter
 
 	return cmd.Run()
 }
