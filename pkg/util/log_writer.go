@@ -1,7 +1,7 @@
 package util
 
 type logger interface {
-	Print(v ...any)
+	Print(v ...interface{})
 }
 
 type LogWriter struct {

@@ -49,9 +49,9 @@ type buildFlags struct {
 }
 
 type logger interface {
-	Print(v ...any)
-	Printf(format string, v ...any)
-	Println(v ...any)
+	Print(v ...interface{})
+	Printf(format string, v ...interface{})
+	Println(v ...interface{})
 }
 
 func StartBuild(args Args, logger logger) error {
