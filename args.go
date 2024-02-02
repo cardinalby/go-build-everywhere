@@ -26,6 +26,8 @@ func (args *BuildArgs) SetDefaults() {
 }
 
 type Args struct {
+	// TempDir is a temporary directory is used for go cache. System temp dir is used if empty
+	DepsCache string
 	// Repository is root import path to build (command line arg):
 	Repository string
 	// Go release to use for cross compilation (flag: go)
