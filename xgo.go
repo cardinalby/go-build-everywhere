@@ -1,6 +1,7 @@
 package xgolib
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"go/build"
@@ -434,10 +435,14 @@ func resolveImportPath(path string) (string, error) {
 // Executes a command synchronously, redirecting its output to stdout.
 func run(ctx context.Context, cmd *exec.Cmd, logWriter util.LogWriter) error {
 	cmd.Stdout = logWriter
-	cmd.Stderr = logWriter
+	stdErrBuff := &bytes.Buffer{}
+	cmd.Stderr = util.NewFanOutWriter(logWriter, stdErrBuff)
 
 	return util.RunCtx(ctx, cmd, func() error {
-		return cmd.Run()
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("%w: %s", err, stdErrBuff.String())
+		}
+		return nil
 	})
 }
 
