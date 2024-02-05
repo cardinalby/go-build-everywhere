@@ -15,6 +15,6 @@ func NewLogWriter(l logger) LogWriter {
 }
 
 func (lw LogWriter) Write(p []byte) (n int, err error) {
-	lw.logger.Print(p)
+	lw.logger.Print(string(p))
 	return len(p), nil
 }
