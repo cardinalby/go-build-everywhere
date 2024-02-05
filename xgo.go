@@ -69,8 +69,11 @@ func StartBuildCtx(ctx context.Context, args Args, logger logger) error {
 	var depsCache string
 	if xgoInXgo {
 		depsCache = "/deps-cache"
-	} else if args.DepsCache == "" {
-		args.DepsCache = filepath.Join(os.TempDir(), "xgo-cache")
+	} else {
+		if args.DepsCache == "" {
+			args.DepsCache = filepath.Join(os.TempDir(), "xgo-cache")
+		}
+		depsCache = args.DepsCache
 	}
 	// Only use docker images if we're not already inside out own image
 	image := ""
