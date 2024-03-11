@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -34,6 +35,7 @@ type configFlags struct {
 	Dependencies string   // CGO dependencies (configure/make based archives)
 	Arguments    string   // CGO dependency configure arguments
 	Targets      []string // Targets to build for
+	DockerUser   string   // Use custom docker user to run xgo container instead of a current user
 	GoProxy      string   // Set a Global Proxy for Go Modules
 }
 
@@ -158,6 +160,7 @@ func StartBuildCtx(ctx context.Context, args Args, logger logger) error {
 		Dependencies: args.CrossDeps,
 		Arguments:    args.CrossArgs,
 		Targets:      args.Targets,
+		DockerUser:   args.DockerUser,
 		GoProxy:      args.GoProxy,
 	}
 	logger.Printf("DBG: config: %+v", config)
@@ -309,8 +312,17 @@ func compile(
 	// Assemble and run the cross compilation command
 	logger.Printf("INFO: Cross compiling %s package...", config.Repository)
 
+	if config.DockerUser == "" {
+		usr, err := user.Current()
+		if err != nil {
+			return fmt.Errorf("error getting current user: %w", err)
+		}
+		config.DockerUser = fmt.Sprintf("%s:%s", usr.Uid, usr.Gid)
+	}
+
 	args := []string{
 		"run", "--rm",
+		"--user", config.DockerUser,
 		"-v", folder + ":/build",
 		"-v", config.DepsCache + ":/deps-cache:ro",
 		"-e", "REPO_REMOTE=" + config.Remote,
