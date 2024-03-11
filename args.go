@@ -54,8 +54,6 @@ type Args struct {
 	DockerRepo string
 	// Use custom docker image instead of official distribution (flag: docker-image)
 	DockerImage string
-	// Use custom docker user to run xgo container instead of a current user
-	DockerUser string
 	// Arguments of go build command (flag: build)
 	Build BuildArgs
 }
